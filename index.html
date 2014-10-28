@@ -1,0 +1,318 @@
+<html>
+	<head>
+<script type="text/javascript" src="js/Three.js"></script>
+<script type="text/javascript" src="js/RequestAnimationFrame.js"></script>
+<script type="text/javascript" src="js/Detector.js"></script>
+<script type="text/javascript" src="js/Stats.js"></script>
+<script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="js/Tween.js"></script>
+<script type="text/javascript" src='js/THREEx.WindowResize.js'></script>
+
+	</head>
+	
+	<body>
+<script>
+//scene,camera,renderer
+// aaaaand objects and stuff
+
+KeysPressed = [];
+App = {
+	startTime: Date.now(),
+	scene: {},
+	renderer: {},
+	stats: {},
+	camera: {},
+	cube: {},
+	
+	init: function() {
+		oldpageX = 0;
+		oldpageY = 0;
+		this.checkWebGL();
+		
+		this.createAndAttachContainer();
+		
+		this.initCamera();
+		this.initScene();
+		this.initStats();
+		this.initRenderer();
+		
+		this.drawObjects();
+		
+		this.addObjectsToScene();
+
+		this.initEvents();
+
+		App.animate();
+
+		var self = this;
+		$(document).bind('contextmenu', function (e) {
+		  e.preventDefault();
+		}); 
+		$('body').on('mousedown', function(e){
+			if (e.button == 0) {
+				self.shootMissile();
+			}
+		});
+
+		$('body').on('mousemove', function(e){
+			console.log(e.buttons)
+			if (e.buttons == 2) {
+				self.moveCamera(e);
+			}
+		});
+
+		$(document).on('move', App.move);
+	},
+
+	initEvents: function() {
+		THREEx.WindowResize(this.renderer, this.camera);
+	},
+
+	moveCamera: function(e) {
+		var rotSpeed = 0.05;
+	    var x = this.camera.position.x,
+	        y = this.camera.position.y,
+	        z = this.camera.position.z;
+	    
+	    if (oldpageX > e.pageX){ 
+	        this.camera.position.x = x * Math.cos(rotSpeed) + z * Math.sin(rotSpeed);
+	        this.camera.position.z = z * Math.cos(rotSpeed) - x * Math.sin(rotSpeed);
+	    } else {
+	        this.camera.position.x = x * Math.cos(rotSpeed) - z * Math.sin(rotSpeed);
+	        this.camera.position.z = z * Math.cos(rotSpeed) + x * Math.sin(rotSpeed);
+	    }
+	    oldpageX = e.pageX;
+	  	this.camera.lookAt(this.scene.position)
+	  	this.renderer.render( this.scene, this.camera );
+	},
+	
+	createAndAttachContainer: function() {
+		this.container = document.createElement( 'div' );
+		document.body.appendChild( this.container );
+	},
+	
+	initStats: function() {
+		this.stats = new Stats();
+		this.stats.domElement.style.position = 'absolute';
+		this.stats.domElement.style.top = '0px';
+		this.container.appendChild( this.stats.domElement )
+	},
+	
+	checkWebGL: function() {
+		if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+	},
+	
+	initCamera: function() {
+		this.camera = new THREE.Camera( 70, window.innerWidth / window.innerHeight, 1, 1300 );
+		this.camera.position.x = 250;
+		this.camera.position.y = 350;
+		this.camera.position.z = 450;
+		this.camera.target.position.y = 50;
+	},
+	
+	initScene: function() {
+		this.scene = new THREE.Scene();
+	},
+	
+	initRenderer: function() {
+		this.renderer = new THREE.WebGLRenderer();
+		this.renderer.setSize( window.innerWidth, window.innerHeight );
+		this.container.appendChild( this.renderer.domElement );
+	},
+	
+	drawObjects: function() {
+		//todo add multiple objects drawing feature
+		var geometry = new THREE.CubeGeometry( 50, 100, 50 );
+		
+		//var material = new THREE.MeshNormalMaterial();
+		var urlPrefix = '';
+		var urls = [ 
+			urlPrefix + "red.png", urlPrefix + "red.png",
+			urlPrefix + "red.png", urlPrefix + "red.png",
+			urlPrefix + "red.png", urlPrefix + "red.png",
+		];
+
+		var textureCube = THREE.ImageUtils.loadTextureCube( urls );
+		var shader = THREE.ShaderUtils.lib["cube"];
+		var uniforms = THREE.UniformsUtils.clone( shader.uniforms);
+		uniforms['tCube'].texture = textureCube;
+
+		var material = new THREE.MeshShaderMaterial({
+			fragmentShader	: 	shader.fragmentShader,
+			vertexShader	: 	shader.vertexShader,
+			uniforms 		: 	uniforms
+		});
+
+		this.player = new THREE.Mesh( geometry, material );
+		this.player.position.z = 250;
+		this.player.position.y = 50;
+		
+
+
+		var geometry = new THREE.CubeGeometry( 800, -50, 800 );
+		var material = new THREE.MeshNormalMaterial();
+		this.surface = new THREE.Mesh( geometry, material );
+
+		var geometry = new THREE.CubeGeometry( 50, 200, 50 );
+		var material = new THREE.MeshNormalMaterial();
+		this.target = new THREE.Mesh( geometry, material );
+		this.target.position.z = -250;
+	},
+	
+	addObjectsToScene: function() {
+		//todo add all objects
+		this.scene.addObject( this.player );
+		this.scene.addObject( this.surface );
+		this.scene.addObject( this.target );
+	},
+
+	checkVictoryCondition: function() {
+		var victory = false;
+
+		var condZ1 = (this.player.position.z <= this.target.position.z + 50);
+		var condZ2 = (this.player.position.z >= this.target.position.z - 50);
+		var condX1 = (this.player.position.x <= this.target.position.x + 50)
+		var condX2 = (this.player.position.x >= this.target.position.x - 50)
+		// console.log(condZ1);
+		// console.log(condZ2);
+		
+		if (condZ1 && condZ2 && condX1 && condX2) {
+			
+			this.player.position.z = 0;
+		}
+
+		return victory;
+	},
+
+	render: function(e) {
+
+		console.log(e);
+		//console.log(App.player.position)
+		// w 87
+		// d 68
+		// s 83
+		// a 65
+
+		// if (KeysPressed["87"]) {
+		// 	App.player.position.z -= speed;
+		// }
+		// if (KeysPressed["83"]) {
+		// 	App.player.position.z += speed;
+		// }
+		// if (KeysPressed["68"]) {
+		// 	App.player.position.x += speed;
+		// }
+		// if (KeysPressed["65"]) {
+		// 	App.player.position.x -= speed;
+		// }
+
+		
+	},
+
+	move: function(e) {
+		var self = this;
+
+		App.checkVictoryCondition();
+		var speed = 10;
+
+		if (KeysPressed["87"]) {
+			App.player.position.z -= speed;
+		}
+		if (KeysPressed["83"]) {
+			App.player.position.z += speed;
+		}
+		if (KeysPressed["68"]) {
+			App.player.position.x += speed;
+		}
+		if (KeysPressed["65"]) {
+			App.player.position.x -= speed;
+		}
+		if (KeysPressed["32"]) {
+			
+			initialHeight = App.player.position.y;
+
+			var update = function() {
+				App.player.position.y -= current.y;
+				console.log(App.player.position.y)
+			}
+
+			var current = { y: -50 }
+
+			TWEEN.removeAll();
+			var easing1 = 'Elastic.EaseInOut';
+			var easing	= TWEEN.Easing[easing1.split('.')[0]][easing1.split('.')[1]];
+
+			var tweenHead = new TWEEN.Tween(current)
+				.to({y: 200}, 2500)
+				.delay(100)
+				.onUpdate(update);
+
+			var tweenBack = new TWEEN.Tween(current)
+				.to({y: -200}, 2500)
+				.delay(100)
+				.onUpdate(update);
+
+			tweenHead.chain(tweenBack);
+
+			tweenBack.chain(tweenHead);
+
+			tweenHead.start();
+		}
+
+		App.renderer.render( App.scene, App.camera );
+	},
+
+	animate: function(e) {
+		$('body').on('keydown keyup', function(e) {
+			
+			KeysPressed[e.keyCode] = e.type == 'keydown';
+
+			$(document).trigger('move');
+			App.render(e);
+		
+			//requestAnimationFrame( App.animate );
+
+			App.stats.update();
+		});
+	},
+
+	shootMissile: function() {
+		if (typeof this.missile != 'undefined') {
+			this.scene.removeObject( this.missile );
+		}
+
+		var geometry = new THREE.CubeGeometry( 15, 15, 15 );
+		var material = new THREE.MeshNormalMaterial();
+		this.missile = new THREE.Mesh( geometry, material );
+		this.missile.position.z = App.player.position.z;
+		this.missile.position.x = App.player.position.x;
+		this.missile
+
+		this.scene.addObject( this.missile );
+
+		this.animateMissile();
+	},
+
+	renderMissile: function() {
+		App.missile.position.z -= 20;
+
+		App.renderer.render( App.scene, App.camera );
+	},
+
+	animateMissile: function(e) {
+		App.renderMissile();
+
+		if (App.missile.position.z >= -400) {
+			requestAnimationFrame( App.animateMissile );	
+			App.stats.update();
+		}
+	},
+}
+
+
+App.init();
+	
+</script>
+
+	</body>
+</html>
